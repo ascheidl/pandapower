@@ -518,7 +518,7 @@ def create_buses(net, nr_buses, vn_kv, index=None, name=None, type="b", geodata=
 def create_load(net, bus, p_mw, q_mvar=0, const_z_percent=0, const_i_percent=0, sn_mva=nan,
                 name=None, scaling=1., index=None,
                 in_service=True, type=None, max_p_mw=nan, min_p_mw=nan,
-                max_q_mvar=nan, min_q_mvar=nan, controllable=nan):
+                max_q_mvar=nan, min_q_mvar=nan, controllable=nan, skip_checks=False):
     """
     Adds one load in table net["load"].
 
@@ -572,6 +572,9 @@ def create_load(net, bus, p_mw, q_mvar=0, const_z_percent=0, const_i_percent=0, 
 
         **controllable** (boolean, default NaN) - States, whether a load is controllable or not. \
             Only respected for OPF
+            
+        **skip_checks** (boolean, default False) - Skips the check if an index exists and does \
+            not preserve dtypes. Can be used to create fast 
 
     OUTPUT:
         **index** (int) - The unique ID of the created element
@@ -585,43 +588,36 @@ def create_load(net, bus, p_mw, q_mvar=0, const_z_percent=0, const_i_percent=0, 
 
     if index is None:
         index = get_free_id(net["load"])
-    if index in net["load"].index:
+
+    if not skip_checks and index in net["load"].index:
         raise UserWarning("A load with the id %s already exists" % index)
 
-    # store dtypes
     dtypes = net.load.dtypes
 
-    net.load.loc[index, ["name", "bus", "p_mw", "const_z_percent", "const_i_percent", "scaling",
-                         "q_mvar", "sn_mva", "in_service", "type"]] = \
-        [name, bus, p_mw, const_z_percent, const_i_percent, scaling, q_mvar, sn_mva,
-         bool(in_service), type]
+    for param, value in [("name", name),
+                         ("bus", bus),
+                         ("p_mw", p_mw),
+                         ("const_z_percent", const_z_percent),
+                         ("const_i_percent", const_i_percent),
+                         ("scaling", scaling), 
+                         ("q_mvar", q_mvar),
+                         ("sn_mva", sn_mva),
+                         ("in_service", bool(in_service)),
+                         ("type", type)]:
+        net["load"].at[index, param] = value
 
-    # and preserve dtypes
-    _preserve_dtypes(net.load, dtypes)
+    if not skip_checks:
+        _preserve_dtypes(net.load, dtypes)
 
-    if not isnan(min_p_mw):
-        if "min_p_mw" not in net.load.columns:
-            net.load.loc[:, "min_p_mw"] = pd.Series()
-
-        net.load.loc[index, "min_p_mw"] = float(min_p_mw)
-
-    if not isnan(max_p_mw):
-        if "max_p_mw" not in net.load.columns:
-            net.load.loc[:, "max_p_mw"] = pd.Series()
-
-        net.load.loc[index, "max_p_mw"] = float(max_p_mw)
-
-    if not isnan(min_q_mvar):
-        if "min_q_mvar" not in net.load.columns:
-            net.load.loc[:, "min_q_mvar"] = pd.Series()
-
-        net.load.loc[index, "min_q_mvar"] = float(min_q_mvar)
-
-    if not isnan(max_q_mvar):
-        if "max_q_mvar" not in net.load.columns:
-            net.load.loc[:, "max_q_mvar"] = pd.Series()
-
-        net.load.loc[index, "max_q_mvar"] = float(max_q_mvar)
+    for param, value in [("min_p_mw", float(min_p_mw)), 
+                         ("max_p_mw", float(max_p_mw)),
+                         ("min_q_mvar", float(min_q_mvar)),
+                         ("max_q_mvar", float(max_q_mvar)),
+                         ]:
+        if not isnan(value):
+            if param not in net.load.columns:
+                net.load[param] = pd.Series()
+            net.load.at[index, param] = float(value)
 
     if not isnan(controllable):
         if "controllable" not in net.load.columns:
@@ -667,7 +663,7 @@ def create_load_from_cosphi(net, bus, sn_mva, cos_phi, mode, **kwargs):
 def create_sgen(net, bus, p_mw, q_mvar=0, sn_mva=nan, name=None, index=None,
                 scaling=1., type=None, in_service=True, max_p_mw=nan, min_p_mw=nan,
                 max_q_mvar=nan, min_q_mvar=nan, controllable=nan, k=nan, rx=nan,
-                current_source=True):
+                current_source=True, fast=False):
     """
     Adds one static generator in table net["sgen"].
 
@@ -742,19 +738,21 @@ def create_sgen(net, bus, p_mw, q_mvar=0, sn_mva=nan, name=None, index=None,
     if index is None:
         index = get_free_id(net["sgen"])
 
-    if index in net["sgen"].index:
+    if not fast and index in net["sgen"].index:
         raise UserWarning("A static generator with the id %s already exists" % index)
 
-    # store dtypes
-    dtypes = net.sgen.dtypes
+    if not fast:
+        # store dtypes
+        dtypes = net.sgen.dtypes
 
     net.sgen.loc[index, ["name", "bus", "p_mw", "scaling",
                          "q_mvar", "sn_mva", "in_service", "type",
                          "current_source"]] = \
         [name, bus, p_mw, scaling, q_mvar, sn_mva, bool(in_service), type, current_source]
 
-    # and preserve dtypes
-    _preserve_dtypes(net.sgen, dtypes)
+    if not fast:
+        # and preserve dtypes
+        _preserve_dtypes(net.sgen, dtypes)
 
     if not isnan(min_p_mw):
         if "min_p_mw" not in net.sgen.columns:

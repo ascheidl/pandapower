@@ -206,12 +206,19 @@ class pandapowerNet(ADict):
 
 
 def _preserve_dtypes(df, dtypes):
-    for c, t1, t2 in zip(df.columns.values, df.dtypes.values, dtypes.values):
-        if t1 != t2:
-            try:
-                df[c] = df[c].astype(t2)
-            except ValueError:
-                df[c] = df[c].astype(float)
+    # no type changed and columns same order should have fastest path of execution
+    for c, t1, c2, t2 in zip(df.columns.values, df.dtypes.values,
+                              dtypes.index.values, dtypes.values):
+        if c != c2 or t1 != t2:
+            break
+    else:
+        return
+    for item, dtype in dtypes.iteritems():
+        if df.dtypes.at[item] != dtype:
+             try:
+                df[item] = df[item].astype(dtype)
+             except ValueError:
+                df[item] = df[item].astype(float)
 
 
 def get_free_id(df):
