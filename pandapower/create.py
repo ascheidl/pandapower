@@ -663,7 +663,7 @@ def create_load_from_cosphi(net, bus, sn_mva, cos_phi, mode, **kwargs):
 def create_sgen(net, bus, p_mw, q_mvar=0, sn_mva=nan, name=None, index=None,
                 scaling=1., type=None, in_service=True, max_p_mw=nan, min_p_mw=nan,
                 max_q_mvar=nan, min_q_mvar=nan, controllable=nan, k=nan, rx=nan,
-                current_source=True, fast=False):
+                current_source=True, skip_checks=False):
     """
     Adds one static generator in table net["sgen"].
 
@@ -738,10 +738,10 @@ def create_sgen(net, bus, p_mw, q_mvar=0, sn_mva=nan, name=None, index=None,
     if index is None:
         index = get_free_id(net["sgen"])
 
-    if not fast and index in net["sgen"].index:
+    if not skip_checks and index in net["sgen"].index:
         raise UserWarning("A static generator with the id %s already exists" % index)
 
-    if not fast:
+    if not skip_checks:
         # store dtypes
         dtypes = net.sgen.dtypes
 
@@ -750,7 +750,7 @@ def create_sgen(net, bus, p_mw, q_mvar=0, sn_mva=nan, name=None, index=None,
                          "current_source"]] = \
         [name, bus, p_mw, scaling, q_mvar, sn_mva, bool(in_service), type, current_source]
 
-    if not fast:
+    if not skip_checks:
         # and preserve dtypes
         _preserve_dtypes(net.sgen, dtypes)
 
